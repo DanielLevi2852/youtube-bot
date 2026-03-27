@@ -55,10 +55,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             height = choice.split('_')[1]
             # הגדרה להורדת וידאו באיכות נבחרת ומיזוג עם FFmpeg
             ydl_opts = {
-                'format': f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={height}][ext=mp4]/best',
-                'outtmpl': f'downloads/{chat_id}_%(title)s.%(ext)s',
-                'merge_output_format': 'mp4'
-            }
+            'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
+            'outtmpl': 'downloaded_video.%(ext)s',
+            'merge_output_format': 'mp4',
+            'noplaylist': True,
+            'quiet': True,
+            'no_warnings': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        }
         else: # שמע MP3
             quality = choice.split('_')[1]
             ydl_opts = {
