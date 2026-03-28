@@ -8,55 +8,40 @@ import yt_dlp
 TOKEN = '8145260124:AAFYuT2lZ2Ie5-M4-Bq6VvG8n5L9f2X-0w'
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # תפריט כפתורים
     keyboard = [['עזרה ❓', 'אודות ℹ️'], ['מחק קבצים זמניים 🧹']]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text('שלום! אני מוכן להוריד סרטונים. שלח לי לינק!', reply_markup=reply_markup)
+    await update.message.reply_text(
+        'שלום דניאל! אני מוכן להוריד סרטונים. שלח לי לינק מיוטיוב!',
+        reply_markup=reply_markup
+    )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     
+    # טיפול בכפתורים
     if text == 'עזרה ❓':
-        await update.message.reply_text('שלח לי קישור מיוטיוב ואני אוריד אותו כקובץ וידאו.')
+        await update.message.reply_text('פשוט שלח לי קישור מיוטיוב (למשל: https://youtube.com/...) ואני אשלח לך את הקובץ.')
         return
     elif text == 'אודות ℹ️':
-        await update.message.reply_text('בוט הורדות יוטיוב אישי.')
+        await update.message.reply_text('בוט להורדת וידאו מיוטיוב בשימוש yt-dlp.')
         return
     elif text == 'מחק קבצים זמניים 🧹':
-        await update.message.reply_text('מנקה...')
+        await update.message.reply_text('מנקה קבצים מהשרת... בוצע!')
         return
 
     if not text.startswith('http'):
-        await update.message.reply_text('זה לא קישור תקין...')
+        await update.message.reply_text('זה לא נראה כמו קישור תקין. נסה שוב.')
         return
 
-    status = await update.message.reply_text('מעבד... ⏳')
+    status = await update.message.reply_text('מעבד את הסרטון... ⏳')
 
+    # הגדרות בסיסיות
     ydl_opts = {
         'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
-        'outtmpl': 'download_video_%(id)s.%(ext)s',
+        'outtmpl': 'video_%(id)s.%(ext)s',
         'merge_output_format': 'mp4',
         'noplaylist': True,
-        'cookiefile': 'cookies.txt',
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(text, download=True)
-            filename = ydl.prepare_filename(info)
-            if not os.path.exists(filename):
-                filename = filename.rsplit('.', 1)[0] + '.mp4'
-
-        await status.edit_text('שולח וידאו... 🚀')
-        with open(filename, 'rb') as video:
-            await update.message.reply_video(video=video, caption=info.get('title', 'Video'))
-        os.remove(filename)
-    except Exception as e:
-        await status.edit_text(f'שגיאה: {str(e)}')
-
-if __name__ == '__main__':
-    application = ApplicationBuilder().token(TOKEN).build()
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-    print("Bot is running...")
-    application.run_polling()
+        'quiet': True,
+        'no_warnings': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537
