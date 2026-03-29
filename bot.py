@@ -7,48 +7,44 @@ import yt_dlp
 TOKEN = '8777569297:AAFXSfYINq4p36qVcYcClcQD0h-xAyR8UQU'
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('הבוט חזר לחיים! שלח לי לינק קצר לבדיקה (עד 5 דקות).')
+    await update.message.reply_text('שלום דניאל! עברתי למצב הורדת שירים (MP3) כדי למנוע חסימות. שלח לי לינק!')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     if not url.startswith('http'): return
 
-    status_msg = await update.message.reply_text('מעבד בזהירות... ⚙️')
+    status_msg = await update.message.reply_text('מוריד את השיר... 🎵')
 
-    # הגדרות סופר-קלות כדי למנוע קריסה
     ydl_opts = {
-        # מוריד רק וידאו משולב באיכות בינונית (360p/480p) כדי לא לחנוק את השרת
-        'format': 'best[height<=480]', 
-        'outtmpl': 'vid_%(id)s.%(ext)s',
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'outtmpl': 'song_%(id)s.%(ext)s',
         'noplaylist': True,
-        'quiet': True, # פחות לוגים = פחות זיכרון
-        'no_warnings': True,
+        # שימוש בעוגיות אם העלית אותן
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
 
-    if os.path.exists('cookies.txt'):
-        ydl_opts['cookiefile'] = 'cookies.txt'
-
     try:
-        # הפעלת ההורדה בצורה שלא תתקע את כל הבוט
         loop = asyncio.get_event_loop()
-        info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(url, download=True))
-        filename = yt_dlp.YoutubeDL(ydl_opts).prepare_filename(info)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=True))
+            # yt-dlp משנה את הסיומת ל-mp3 אחרי העיבוד
+            filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
 
-        await status_msg.edit_text('שולח לטלגרם... 🚀')
-        
+        await status_msg.edit_text('שולח שיר... 🚀')
         with open(filename, 'rb') as f:
-            await update.message.reply_video(video=f, caption=info.get('title', 'Ready!'))
+            await update.message.reply_audio(audio=f, title=info.get('title'))
         
         if os.path.exists(filename):
             os.remove(filename)
 
     except Exception as e:
-        error_str = str(e)
-        if "Sign in" in error_str:
-            await status_msg.edit_text("יוטיוב דורש אימות. צריך לעדכן את קובץ ה-cookies.")
-        else:
-            await status_msg.edit_text(f"השרת התעייף: {error_str[:50]}...")
+        await status_msg.edit_text(f"שגיאה: יוטיוב חוסם את השרת. נסה להוציא קובץ cookies חדש מהדפדפן.")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
