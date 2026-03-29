@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 import yt_dlp
 
+# הטוקן שלך
 TOKEN = '8777569297:AAFXSfYINq4p36qVcYcClcQD0h-xAyR8UQU'
 
 # פקודת /start - הודעת ברוכים הבאים
@@ -13,7 +14,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👋 *שלום {user_name}!* \n\n"
         "אני הבוט של דניאל להורדת שירים מיוטיוב. \n"
         "פשוט שלח לי *לינק* (סרטון או שיר) ואני אהפוך אותו ל-MP3. \n\n"
-        "לחץ על ה-Menu כדי לראות מה עוד אני יודע לעשות!"
+        "💡 _הבוט מעודכן להגדרות דפדפן חדשות (Chrome 122)._"
     )
     await update.message.reply_text(welcome_text, parse_mode='Markdown')
 
@@ -32,13 +33,14 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     about_text = "🤖 *על הבוט:* \n\nנוצר על ידי דניאל לוי 🚀 \nהבוט מופעל על שרת Render ומאפשר הורדה מהירה של מוזיקה מיוטיוב."
     await update.message.reply_text(about_text, parse_mode='Markdown')
 
-# טיפול בהורדת שירים (הקוד שכתבנו קודם עם הסוואת האייפון)
+# פונקציה לטיפול בהורדת שירים
 async def handle_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     if not url.startswith('http'): return
 
     status_msg = await update.message.reply_text('מנסה להוריד את השיר... 🎵')
 
+    # הגדרות הורדה מעודכנות לעקיפת חסימות
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
@@ -48,37 +50,51 @@ async def handle_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }],
         'outtmpl': 'song_%(id)s.%(ext)s',
         'noplaylist': True,
-        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
+        'nocheckcertificate': True,
+        'ignoreerrors': False,
+        'logtostderr': False,
         'quiet': True,
+        'no_warnings': True,
+        'default_search': 'auto',
+        'source_address': '0.0.0.0',
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None,
     }
 
     try:
         loop = asyncio.get_event_loop()
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # השהייה קלה כדי להיראות אנושי
+            await asyncio.sleep(1)
             info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=True))
             filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
 
-        await status_msg.edit_text('הנה השיר שלך! 🚀')
+        await status_msg.edit_text('הצלחתי! שולח שיר... 🚀')
         with open(filename, 'rb') as f:
             await update.message.reply_audio(audio=f, title=info.get('title'))
         
+        # מחיקת הקובץ מהשרת אחרי השליחה
         if os.path.exists(filename):
             os.remove(filename)
 
     except Exception as e:
-        await status_msg.edit_text("עדיין חסום ❌. יוטיוב מזהה את השרת. נסה לרענן את ה-cookies.")
+        error_msg = str(e)
+        if "Sign in" in error_msg:
+            await status_msg.edit_text("עדיין חסום ❌. יוטיוב מזהה את השרת. צריך לעדכן את קובץ ה-cookies.txt ב-GitHub.")
+        else:
+            await status_msg.edit_text(f"שגיאה בהורדה: {error_msg[:100]}")
 
+# הפעלת הבוט
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
     
-    # חיבור כל הפקודות לפונקציות שלהן
+    # הוספת הפקודות
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('help', help_command))
     app.add_handler(CommandHandler('about', about_command))
     
-    # טיפול בלינקים (כל טקסט שהוא לא פקודה)
+    # הוספת המטפל בלינקים
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_youtube))
     
-    print("הבוט פועל עם תפריט ותשובות לפקודות!")
+    print("הבוט פועל! המתן להודעות...")
     app.run_polling()
